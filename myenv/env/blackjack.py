@@ -1,9 +1,6 @@
 import random
 import copy
 
-import gym
-import numpy as np
-import gym.spaces
 
 # 定数
 NUM_DECK = 6  # デッキ数
@@ -180,9 +177,9 @@ class Player:
     def __init__(self):
         self.hand = Hand()
         self.chip = Chip()
-        self.done = False
+        self.done = False  # Playerのターン終了を示すフラグ
         self.hit_flag = False  # Player が Hit を選択済みかどうか示すフラグ
-        self.is_human = False  # True:人がプレイ，False:自動プレイ
+        self.is_human = True  # True:人がプレイ，False:自動プレイ
 
     def init_player(self):
         self.hand = Hand()
@@ -244,16 +241,20 @@ class Chip:
         self.bet = 0
 
     def bet_chip(self, bet):
+        # Chipを掛けたら手持ちから減らす
         self.balance -= bet
         self.bet = bet
 
     def pay_chip_win(self):
+        # 勝った時，BETの2倍を得る
         self.balance += self.bet * 2
 
     def pay_chip_lose(self):
+        # 負けた時，BETを全額失う
         self.balance = self.balance
 
     def pay_chip_push(self):
+        # 引き分けのとき，BETした分だけ戻る
         self.balance += self.bet
 
 
@@ -411,6 +412,9 @@ class Game:
                 print("Surrender が選択されました")
 
         else:
+            # print("不正なDouble downまたはSurrender")
+            # print("Player : " + str(self.player.hand.hand) + " = " +
+            #       str(self.player.hand.sum_point()) + ", soft card : " + str(self.player.hand.is_soft_hand))
             if self.message_on:
                 print("正しい選択肢を選んでください")
 
@@ -560,158 +564,6 @@ def main():
 
     return game.player.chip, game.game_count
 
-'''
-class BlackJackEnv(gym.Env):
-    metadata = {'render.mode': ['human', 'ansi']}
-
-    MAX_GAME_COUNT = 50  # 1エピソード内で行う最大のゲーム数
-
-    def __init__(self):
-        super().__init__()
-
-        self.game = Game()
-        self.game.start()
-
-        # action_space, observation_space, reward_range を設定する
-        self.action_space = gym.spaces.Discrete(4)  # hit, stand, double down, surrender
-
-        high = np.array([
-            30,  # player max
-            11,  # dealer max
-            1,   # is_soft_hand
-        ])
-        low = np.array([
-            2,  # player min
-            1,  # dealer min
-            0,  # is_soft_hand
-        ])
-        self.observation_space = gym.spaces.Box(low=low, high=high)  # プレイヤーのポイント，ディーラーのポイント
-        self.reward_range = [-10000, 10000]  # 報酬の最小値と最大値のリスト
-        self._reset()
-
-    def _reset(self):
-        # 状態を初期化し，初期の観測値を返す
-        # 諸々の変数を初期化する
-        self.done = False
-        self.bet_done = False
-        self.steps = 0
-
-        self.chip = 0  # self.game.player.chip.balance
-
-        self.game.start()  # game_mode=1にする
-
-        # self.player_point = 0
-        # self.dealer_up_card = 0
-        # self.observation = [self.player_point, self.dealer_up_card]
-
-        if self.bet_done == False:
-            self.game.reset_game()
-            self.game.bet(bet=100)
-            self.game.deal()
-            self.bet_done = True
-
-        return self._observe()
-
-    def _step(self, action):
-        # action を実行し，結果を返す
-        # 1ステップ進める処理を記述．戻り値はobservation, reward, done（ゲーム終了したか）, info(追加の情報の辞書
-        # )
-
-        if action == 0:
-            action_str = 's'  # Stand
-        elif action == 1:
-            action_str = 'h'  # Hit
-        elif action == 2:
-            action_str = 'd'  # Double down
-        elif action == 3:
-            action_str = 'r'  # Surrender
-
-        self.game.player_step(action=action_str)
-
-
-        if self.game.player.done:
-            # プレーヤーのターンが終了したとき
-            self.game.dealer_turn()
-            self.game.judge()
-            acquired_chip = self.game.pay_chip()
-            self.game.check_chip()
-            reward = self._get_reward(acquired_chip)
-            # self.game.ask_next_game()
-            self.game.check_deck()
-            self.bet_done = False
-            if self.bet_done == False:
-                self.game.reset_game()
-                self.game.bet(bet=100)
-                self.game.deal()
-                self.bet_done = True
-
-        else:
-            # プレーヤーのターンを継続するとき
-            reward = 0  #self._get_reward()
-
-        observation = self._observe()
-
-        self.done = self._is_done()
-        return observation, reward, self.done, self.game.player.chip.balance
-
-    def _render(self, mode='human', close=False):
-        # 環境を可視化する
-        # human の場合はコンソールに出力．ansi の場合は StringIO を返す
-        pass
-        # outfile = StringIO() if mode == 'ansi' else sys.stdout
-        # outfile.write('\n'.join( for row in self._observe) + '\n')
-
-        # return outfile
-
-    def _close(self):
-        # 環境を閉じて，後処理をする
-        pass
-
-    def _seed(self, seed=None):
-        # ランダムシードを固定する
-        pass
-
-    def _get_reward(self, acquired_chip):
-        # 報酬を返す
-        reward = acquired_chip - self.game.player.chip.bet  #.game.player.chip.balance
-        return reward
-
-
-    def _is_done(self):
-        if self.game.game_mode == 2:  # チップがMINIMUM_CHIPを下回ったらgame_mode=2にする
-            return True
-        elif self.game.game_count > self.MAX_GAME_COUNT:
-            return True
-        else:
-            return False
-
-    def _observe(self):
-        # observation は object であること
-        # if self.bet_done == True:
-        #     # self.player_point = self.game.player.hand.sum_point()
-        #     # self.dealer_up_card = self.game.dealer.hand.hand[0].point
-        #     self.observation = np.array([
-        #         self.game.player.hand.calc_final_point(),
-        #         self.game.dealer.hand.hand[0].point,
-        #         self.game.player.hand.is_soft_hand])
-        # else:
-        #     # self.player_point = 0
-        #     # self.dealer_up_card = 0
-        #     self.observation = np.array([0,
-        #                                  0,
-        #                                  self.game.player.hand.is_soft_hand])
-        # self.observation = [self.player_point, self.dealer_up_card]
-
-        self.observation = np.array([
-            self.game.player.hand.calc_final_point(),
-            self.game.dealer.hand.hand[0].point,
-            self.game.player.hand.is_soft_hand])
-
-        observation = tuple(self.observation)
-
-        return observation
-'''
 
 if __name__ == '__main__':
     main()
-

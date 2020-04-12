@@ -265,6 +265,7 @@ class QLearningAgent(Agent):
             while not done:
                 if render:
                     env.render()
+                print(s)
                 a = self.policy(s, actions)
                 # print("action is : " + str(a))
                 n_state, reward, done, info = env.step(a)
@@ -295,9 +296,9 @@ class QLearningAgent(Agent):
         self.init_log()
 
         # load basic strategy
-        # strategy = self.load_basic_strategy()
+        strategy = self.load_basic_strategy()
         # load Q-learning result
-        strategy = self.load_Q_table()
+        # strategy = self.load_Q_table()
         for e in range(episode_count):
             print("episode:" + str(e))
             s = env.reset()
@@ -306,6 +307,7 @@ class QLearningAgent(Agent):
             while not done:
                 if render:
                     env.render()
+                print(s)
                 a = strategy.at[str(s), 'Action']
                 if a == np.nan:
                     print("action is None" + " state:" + str(s))
@@ -334,14 +336,14 @@ class QLearningAgent(Agent):
 def train():
     agent = QLearningAgent()
     env = gym.make('BlackJack-v0')
-    agent.learn(env, episode_count=10000, report_interval=100)
+    agent.learn(env, episode_count=20000, report_interval=200)
     agent.save_Q()
-    agent.show_reward_log()
+    agent.show_reward_log(interval=200)
 
 def play():
     agent = QLearningAgent()
     env = gym.make('BlackJack-v0')
-    agent.play(env, episode_count=10000, report_interval=1)
+    agent.play(env, episode_count=1000, report_interval=1)
     agent.show_reward_log(interval=1)
 
 def test():
@@ -351,5 +353,5 @@ def test():
 
 
 if __name__ == "__main__":
-    # train()
-    play()
+    train()
+    # play()
